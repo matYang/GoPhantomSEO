@@ -74,12 +74,17 @@ func Set(key, value string) (reply string, err error) {
 	defer conn.Close()
 
 	//set and exp, everything expires in 2 months after each set
-	data, err := conn.Do("SETEX", key, EXPIRE_SEC, value)
+	conn.Send("SETEX", key, EXPIRE_SEC, value)
+	conn.Flush()
+
+	data, err := conn.Receive()
+	if err != nil {
+		return
+	}
 
 	ok := false
 	if reply, ok = data.(string); !ok {
-		fmt.Println("[ERROR] Set Value not String")
-		err = errors.New("Value not String")
+		err = errors.New("[ERROR] Set Return Value not String")
 	}
 
 	return
@@ -89,14 +94,19 @@ func Get(key string) (reply string, err error) {
 	conn := pool.Get()
 	defer conn.Close()
 
-	data, err := conn.Do("GET", key)
+	conn.Send("GET", key)
+	conn.Flush()
 
-	//apparently the raw return type is byte slice
-	replyArr := []byte{}
+	data, err := conn.Receive()
+	if err != nil {
+		return
+	}
+
+	//apparently the raw return type is int slice
+	replyArr := []uint8{}
 	ok := false
-	if replyArr, ok = data.([]byte); !ok {
-		fmt.Println("[ERROR] Get Value not String")
-		err = errors.New("[ERROR] Get Value not String")
+	if replyArr, ok = data.([]uint8); !ok {
+		err = errors.New("[ERROR] Get Return Value not int slice")
 	} else {
 		reply = string(replyArr[:])
 	}
