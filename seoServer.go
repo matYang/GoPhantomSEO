@@ -1,49 +1,14 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"github.com/matYang/goPhantom/quickHash"
+	"github.com/matYang/goPhantom/redis"
+	"github.com/matYang/goPhantom/refreshStore"
+	"github.com/matYang/goPhantom/util"
 	"net/http"
 	"strings"
 	"time"
-)
-
-//创建一个新的Redis连接池
-//create a new redis connection pool
-func newPool(server, password string) *redis.Pool {
-	return &redis.Pool{
-		MaxIdle:     10,                //最多闲置连接: 10
-		IdleTimeout: 300 * time.Second, //闲置自动断链时间: 5min
-		Dial: func() (redis.Conn, error) {
-			conn, err := redis.Dial("tcp", server)
-			if err != nil {
-				panic(err)
-			}
-			if password != "" {
-				if _, err := conn.Do("AUTH", password); err != nil {
-					conn.Close()
-					panic(err)
-				}
-			}
-			return conn, err
-		},
-		TestOnBorrow: func(conn redis.Conn, t time.Time) error {
-			_, err := conn.Do("PING")
-			return err
-		},
-	}
-}
-
-var (
-	//global的连接池
-	//global connection pool
-	pool *redis.Pool
-	//标帜command line中可以对redis使用的 -<flag> 以及对应的默认值
-	//flags to be used in command line
-	redisServer   = flag.String("redisServer", ":6379", "")
-	redisPassword = flag.String("redisPassword", "", "")
 )
 
 const (
@@ -55,17 +20,13 @@ const (
 	SEARCH  = "/search"
 	COURSE  = "/course"
 
-	REFRESH_MAX    = 1000 * 60 * 60 * 25      //fresh the urls tracked in previous 25 hours
-	EXPIRETIME_MIN = 1000 * 60 * 60 * 24 * 60 //expire the urls tracked 2 months ago
+	GENERATE_TICKLEPPERIOD = 1000 * 60 * 60 * 6  //generate tickle every 6 hours
+	CLEAN_TICKLEPPERIOD    = 1000 * 60 * 60 * 24 //clean tickle every 24 hours
 )
 
 func getUrl(sufix string) (url string) {
 	url = MODE + "://" + DOMAIN + sufix
 	return
-}
-
-func getMili() int64 {
-	return int64(time.Now().Unix())
 }
 
 func snapshotHandler(w http.ResponseWriter, r *http.Request) {
@@ -74,62 +35,130 @@ func snapshotHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.RemoteAddr)
 
 	reqPath := r.RequestURI
-	//front page
+	if reqPath == "" {
+		reqPath = "/"
+	}
+
+	realUrl := getUrl("/#" + reqPath[1:])
+	fmt.Println("transalated url is: " + realUrl)
+
 	if reqPath == DEFAULT || strings.HasPrefix(reqPath, FRONT) {
 		fmt.Println("[MATCH][Default/Front]")
-
-		qualifiedUrl := getUrl(reqPath)
-		realUrl := getUrl("/#" + reqPath[1:])
-		hashedUrl := "ishDefaultFrontPage"
 	} else if strings.HasPrefix(reqPath, SEARCH) {
 		fmt.Println("[MATCH][Search]")
-
-		qualifiedUrl := getUrl(reqPath)
-		realUrl := getUrl("/#" + reqPath[1:])
-		hashedUrl := quickHash.Hash(realUrl)
 	} else if strings.HasPrefix(reqPath, COURSE) {
 		fmt.Println("[MATCH][Course]")
-
-		qualifiedUrl := getUrl(reqPath)
-		realUrl := getUrl("/#" + reqPath[1:])
-		hashedUrl := quickHash.Hash(realUrl)
 	} else {
 		fmt.Println("[MISMATCH][path=" + reqPath + "]")
-
 		http.Redirect(w, r, getUrl(DEFAULT), http.StatusFound)
 		return
 	}
 
-	fmt.Println("qualified url is: " + qualifiedUrl)
-	fmt.Println("transalated url is: " + realUrl)
-	fmt.Println("hashed url is: " + hashedUrl)
+	//create the new date directory if it does not exist
+	now := util.GetMili()
+	directory := util.AssembleDirectory(now)
+	if util.DirectoryNotExist(directory) {
+		util.CreateDirectory(directory)
+	}
+
+	previousHash, previousMili, err := redis.GetByUrl(realUrl)
+	if err != nil {
+		//if not exist, err will be non-nil
+
+		hashedUrl := quickHash.Hash(realUrl)
+
+		//add new record to redis, make the record consistent with file name parameters
+		//ignore redis error here, as there is nothing we can possily do
+		_, _, _ = redis.SetByUrl(realUrl, hashedUrl, util.I64ToStr(now))
+		filename := util.AssembleFilename(hashedUrl, now)
+
+		//just a blind try, since if it does not exist in redis, we do not have time info, so just guess today
+		if util.FileNotExist(filename) {
+			//this snapshot has not been generated yet
+			//return 503 to tell crawler to come back later
+			fmt.Printf("[NOT FOUND][Not In Redis] no such file or directory: %s", filename)
+			http.Error(w, http.StatusText(503), 503)
+			return
+		} else {
+			//no need to copy files, as this file must be in today's folder, it is the only guess
+			//and there is no way to sync redis' time record with reality as it is lost, good thing is the date is correct
+			//serve the static file
+			http.ServeFile(w, r, filename)
+		}
+	} else {
+		//exist in redis, then we can simply use previousHash and previousMili
+		//still set, pass in prevousHash just for safety
+		//ignore redis error here, as there is nothing we can possily do
+		_, _, _ = redis.SetByUrl(realUrl, previousHash, util.I64ToStr(now))
+		filename := util.AssembleFilename(previousHash, previousMili)
+
+		if util.FileNotExist(filename) || (now-previousMili) >= redis.EXPIRE_SEC {
+			//record is in DB but its corresponding file does not exist or record has expired
+			//eg crawler hitting the same url many times a day or cleaned
+			//nothing much we can do
+			fmt.Printf("[NOT FOUND][In Redis] no such file or directory: %s", filename)
+			http.Error(w, http.StatusText(503), 503)
+			return
+		} else {
+			//in redis and file does exist, hopefully best case scenerio
+			newFilename := util.AssembleFilename(previousHash, now)
+			if newFilename != filename {
+				//if not match, given hash is same, the date (folder) must be different
+				//copy the file from previous date folder to the new date folder to indicate a crawler hit
+				err = util.MoveFile(filename, newFilename)
+				if err != nil {
+					//copy file failed
+					fmt.Printf("[FOUND][In Redis] file copy failed: %s", filename)
+					fmt.Println(err)
+				}
+			}
+			//serve the static file
+			http.ServeFile(w, r, newFilename)
+		}
+	}
+}
+
+func scheduledEvent() {
+	tickChan := time.NewTicker(CLEAN_TICKLEPPERIOD).C
+	for {
+		select {
+		case <-tickChan:
+			refreshStore.Clean()
+		}
+	}
 }
 
 func main() {
-	//获取可能有的flag
-	//parse the possible command line flags
-	flag.Parse()
-	//新建连接池
-	//initialize the global conecction pool
-	pool = newPool(*redisServer, *redisPassword)
+	//initial basic test
+	fmt.Println(redis.Get("TESTGOPHANTOM_A"))
+	fmt.Println(redis.Set("TESTGOPHANTOM_A", "test"))
+	if result, _ := redis.Get("TESTGOPHANTOM"); result != "test" {
+		panic("Initial Redis Test Failed")
+	}
+
+	//pipeline test
 	//create a test connection, note that redigo does not return error immediately, if an error occues it will be returned the first time the connection is used
 	//获得测试连接，注意如果连接不上，redigo不会在新建连接池或者连接时出err，而是会推迟在该连接第一次被使用的时候
-	testConn := pool.Get()
-	//发送测试请求
-	//launch the test request, this is where errors might occur
-	testConn.Send("SET", "TESTGOPHANTOM", getMili())
+	testConn := redis.GetConn()
+	//发送测试请求，使用pipeline
+	//launch the test request using redis pipelie, this is where errors might occur
+	testConn.Send("SET", "TESTGOPHANTOM_B", util.GetMili())
+	testConn.Send("GET", "TESTGOPHANTOM_B")
 	//redigo使用pipeline并未抽象，方便使用pipeline对redis实现事务，因此需要手动清空pipeline
-	//redigo uses pipeline for the benifits of transaction, it must be manually flushed
+	//when using pipeline for the benifits of transaction, it must be manually flushed
 	testConn.Flush()
-	//receive获得（Set）请求结果
+	//receive获得（Set, Get）请求结果
 	//receive gets the operation result
-	testConn.Receive()
+	fmt.Println(testConn.Receive())
+	fmt.Println(testConn.Receive())
 	//因为是连接池，因此每次都需要关闭连接
 	//must close connection everytime one is fetched from connection pool
 	testConn.Close()
 
+	//schedule the clean event, which will clear old stuff
+	go scheduledEvent()
+
 	//decalre the http handler
 	http.HandleFunc("/", snapshotHandler)
 	http.ListenAndServe(":8081", nil)
-
 }
