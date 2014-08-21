@@ -9,7 +9,6 @@ import (
 const (
 	TEMPFILE    = "hotspot.txt"
 	PRODUCEFILE = "gen.txt"
-	BAKPATH     = "bak" + string(os.PathSeparator)
 )
 
 func AssembleDirectory(mili int64) string {

@@ -241,7 +241,7 @@ func store() {
 			}
 			f.Close()
 		case <-genChan:
-			if !util.FileNotExist(util.TEMPFILE) {
+			if util.FileNotExist(util.TEMPFILE) {
 				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
 				continue
 			}
