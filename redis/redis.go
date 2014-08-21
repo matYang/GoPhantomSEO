@@ -25,8 +25,7 @@ const (
 	SEPERATOR       = "-"
 	DEFAULTFRONTURL = "ishDefaultFrontPage"
 
-	REFRESH_MILI = 1000 * 60 * 60 * 6 //fresh the urls hit by crawler in previous 6 hours
-	EXPIRE_SEC   = 60 * 60 * 24 * 60  //expire 2 months
+	EXPIRE_SEC = 60 * 60 * 24 * 60 //expire 2 months
 )
 
 //创建一个新的Redis连接池

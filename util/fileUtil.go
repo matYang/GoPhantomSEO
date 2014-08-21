@@ -1,8 +1,16 @@
 package util
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
+)
+
+const (
+	TEMPFILE    = "hotspot.txt"
+	PRODUCEFILE = "gen.txt"
 )
 
 func AssembleDirectory(mili int64) string {
@@ -46,11 +54,6 @@ func MoveFile(src, dest string) (err error) {
 	return
 }
 
-func CreateFile(filename string) (err error){
-    err = os.
-    return
-}
-
 func RemoveFile(filename string) (err error) {
 	err = os.RemoveAll(filename)
 	return
@@ -59,18 +62,31 @@ func RemoveFile(filename string) (err error) {
 func DeepCopyFile(src, dest string) (err error) {
 	// open files r and w
 	r, err := os.Open(src)
-	defer r.Close()
 	if err != nil {
 		return
 	}
+	defer r.Close()
 
 	w, err := os.Create(dest)
-	defer w.Close()
 	if err != nil {
 		return
 	}
+	defer w.Close()
 
 	// do the actual work
 	_, err = io.Copy(w, r)
 	return
+}
+
+func Exe_cmd(cmd string) {
+	fmt.Println("Receving cmd: ", cmd)
+	parts := strings.Fields(cmd)
+	head := parts[0]
+	parts = parts[1:len(parts)]
+
+	out, err := exec.Command(head, parts...).Output()
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
+	fmt.Printf("%s", out)
 }
