@@ -1,16 +1,15 @@
 package util
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 )
 
 const (
 	TEMPFILE    = "hotspot.txt"
 	PRODUCEFILE = "gen.txt"
+	BAKPATH     = "bak" + string(os.PathSeparator)
 )
 
 func AssembleDirectory(mili int64) string {
@@ -79,14 +78,5 @@ func DeepCopyFile(src, dest string) (err error) {
 }
 
 func Exe_cmd(cmd string) {
-	fmt.Println("Receving cmd: ", cmd)
-	parts := strings.Fields(cmd)
-	head := parts[0]
-	parts = parts[1:len(parts)]
-
-	out, err := exec.Command(head, parts...).Output()
-	if err != nil {
-		fmt.Printf("%s", err)
-	}
-	fmt.Printf("%s", out)
+	exec.Command(cmd)
 }
