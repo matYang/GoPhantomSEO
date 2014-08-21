@@ -9,7 +9,7 @@ const (
 )
 
 func GetMili() int64 {
-	return int64(time.Now().Unix())
+	return int64(time.Now().UnixNano())
 }
 
 func GetDayFromMili(mili int64) int64 {

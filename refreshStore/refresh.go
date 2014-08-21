@@ -6,6 +6,7 @@ import (
 	"github.com/matYang/goPhantom/util"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func Clean() {
@@ -14,15 +15,18 @@ func Clean() {
 	paths, _ := ioutil.ReadDir("./")
 	//remove all expired directories
 	for _, path := range paths {
-		if path.Name() == util.TEMPFILE || path.Name() == util.PRODUCEFILE {
+
+		fmt.Println("[Clean] Parsing..." + path.Name())
+		if strings.Contains(path.Name(), ".txt") || strings.Contains(path.Name(), ".sh") {
 			continue
 		}
+
 		//convert the directory name back to mili first
 		pathMili, err := util.StrToI64(path.Name())
 		if err != nil {
 			fmt.Println("[Clean] Error at directory name to long conversion error")
 			fmt.Println(err)
-			return
+			continue
 		}
 		//if expired, remove that directory
 		if (now - pathMili) >= redis.EXPIRE_SEC {
