@@ -3,7 +3,6 @@ package util
 import (
 	"io"
 	"os"
-	"os/exec"
 )
 
 const (
@@ -74,8 +73,4 @@ func DeepCopyFile(src, dest string) (err error) {
 	// do the actual work
 	_, err = io.Copy(w, r)
 	return
-}
-
-func Exe_cmd(cmd string) {
-	exec.Command(cmd)
 }

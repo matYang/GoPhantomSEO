@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -253,7 +254,12 @@ func store() {
 				panic(err)
 			}
 			//file ready, execute shell
-			util.Exe_cmd("./genPantom.sh")
+			cmd := exec.Command("sudo", "./genPhantom.sh")
+			err = cmd.Run()
+			if err != nil {
+				fmt.Println("[Error][Store] failed to execute cmd")
+				fmt.Println(err)
+			}
 
 			//re-create the temp file
 			err = ioutil.WriteFile(util.TEMPFILE, []byte{}, 0666)
@@ -274,8 +280,10 @@ func scheduledEventDisPatcher() {
 	for {
 		select {
 		case <-timer_cleanChan:
+			fmt.Println("[Dispatcher][Clean]")
 			go refreshStore.Clean()
 		case <-timer_genChan:
+			fmt.Println("[Dispatcher][Generate]")
 			genChan <- true
 		}
 	}
