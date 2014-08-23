@@ -22,14 +22,14 @@ func Clean() {
 		}
 
 		//convert the directory name back to mili first
-		pathMili, err := util.StrToI64(path.Name())
+		pathDay, err := util.StrToI64(path.Name())
 		if err != nil {
 			fmt.Println("[Clean] Error at directory name to long conversion error")
 			fmt.Println(err)
 			continue
 		}
 		//if expired, remove that directory
-		if (now - pathMili) >= redis.EXPIRE_SEC {
+		if (util.GetDayFromMili(now) - pathDay) >= redis.EXPIRE_DAY {
 			err = util.RemoveDirectory(path.Name() + string(os.PathSeparator))
 			if err != nil {
 				fmt.Println("[Clean] Error when removing directory: " + path.Name())

@@ -25,7 +25,9 @@ const (
 	SEPERATOR       = "-"
 	DEFAULTFRONTURL = "ishDefaultFrontPage"
 
-	EXPIRE_SEC = 60 * 60 * 24 * 60 //expire 2 months
+	EXPIRE_DAY  = 60 //expire in 2 months
+	EXPIRE_SEC  = 60 * 60 * 24 * EXPIRE_DAY
+	EXPIRE_MILI = 1000 * EXPIRE_SEC
 )
 
 //创建一个新的Redis连接池

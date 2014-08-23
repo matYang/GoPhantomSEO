@@ -37,7 +37,7 @@ func DirectoryNotExist(path string) bool {
 }
 
 func CreateDirectory(path string) (err error) {
-	err = os.Mkdir(path, 776)
+	err = os.Mkdir(path, 0777)
 	return
 }
 
