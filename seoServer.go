@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/matYang/goPhantom/quickHash"
 	"github.com/matYang/goPhantom/redis"
@@ -34,7 +35,7 @@ type Record struct {
 }
 
 func (r Record) toFileString() string {
-	return r.url + " " + util.AssembleFilename(r.hashedUrl, r.mili)
+	return r.url + "-" + util.AssembleFilename(r.hashedUrl, r.mili)
 }
 
 var (
@@ -251,14 +252,34 @@ func store() {
 			}
 			err := util.MoveFile(util.TEMPFILE, util.PRODUCEFILE)
 			if err != nil {
+				fmt.Println("[Error][Store] failed to move temp file to produce file")
 				panic(err)
 			}
-			//file ready, execute shell
-			cmd := exec.Command("sudo", "./genPhantom.sh")
-			err = cmd.Run()
+
+			file, err := os.Open(util.PRODUCEFILE)
 			if err != nil {
-				fmt.Println("[Error][Store] failed to execute cmd")
-				fmt.Println(err)
+				fmt.Println("[Error][Store] failed to open produce file")
+				panic(err)
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := scanner.Text()
+				fmt.Println("Scaning: " + scanner.Text())
+
+				//file ready, execute cmd
+				cmd := exec.Command("sudo", "phantomjs", "phantomjs.js", line)
+				err = cmd.Run()
+				if err != nil {
+					fmt.Println("[Error][Store] failed to execute cmd")
+					fmt.Println(err)
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				fmt.Println("[Error][Store] scanner error")
+				panic(err)
 			}
 
 			//re-create the temp file

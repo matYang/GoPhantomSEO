@@ -6,7 +6,6 @@ import (
 	"github.com/matYang/goPhantom/util"
 	"io/ioutil"
 	"os"
-	"strings"
 )
 
 func Clean() {
@@ -17,7 +16,8 @@ func Clean() {
 	for _, path := range paths {
 
 		fmt.Println("[Clean] Parsing..." + path.Name())
-		if strings.Contains(path.Name(), ".txt") || strings.Contains(path.Name(), ".sh") {
+		if !path.IsDir() {
+			//if not a directory, ignore
 			continue
 		}
 
