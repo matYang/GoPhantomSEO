@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,7 +36,7 @@ type Record struct {
 }
 
 func (r Record) toFileString() string {
-	return r.url + "-" + util.AssembleFilename(r.hashedUrl, r.mili)
+	return r.url + "@" + util.AssembleFilename(r.hashedUrl, r.mili)
 }
 
 var (
@@ -54,14 +55,13 @@ func getUrl(sufix string) (url string) {
 }
 
 func snapshotHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ReqURI is: " + r.RequestURI)
-
 	reqPath := r.RequestURI
-	if strings.Contains(reqPath, ".ico") || strings.Contains(reqPath, ".png") || strings.Contains(reqPath, ".jpg") {
+	if strings.Contains(reqPath, ".css") || strings.Contains(reqPath, ".js") || strings.Contains(reqPath, ".ico") || strings.Contains(reqPath, ".png") || strings.Contains(reqPath, ".jpg") {
 		//block stupid files
 		http.Error(w, http.StatusText(503), 503)
 		return
 	}
+	fmt.Println("ReqURI is: " + r.RequestURI)
 	if reqPath == "" {
 		reqPath = "/"
 	}
@@ -126,14 +126,14 @@ func snapshotHandler(w http.ResponseWriter, r *http.Request) {
 		_, _, _ = redis.SetByUrl(realUrl, previousHash, util.I64ToStr(now))
 		filename := util.AssembleFilename(previousHash, previousMili)
 
-		if util.GetDayFromMili(now) > util.GetDayFromMili(previousMili) {
+		if util.FileNotExist(util.AssembleFilename(previousHash, now)) {
 			//if hit before but not today, add it to the generation list
 			//if hit and its today, then it is already in the list or refreshed, do not add again
 			record := Record{url: realUrl, hashedUrl: previousHash, mili: now}
 			urlChan <- record
 		}
 
-		if util.FileNotExist(filename) || (now-previousMili) >= redis.EXPIRE_SEC {
+		if util.FileNotExist(filename) || (now-previousMili) >= redis.EXPIRE_MILI {
 			//record is in DB but its corresponding file does not exist or record has expired
 			//eg crawler hitting the same url many times a day or cleaned
 			//nothing much we can do
@@ -234,6 +234,8 @@ func store() {
 				fmt.Println(err)
 				continue
 			}
+
+			fmt.Println("[RECORD][Store] recoding: " + record.toFileString())
 			//write a line
 			_, err = f.WriteString(record.toFileString() + "\n")
 			if err != nil {
@@ -243,6 +245,7 @@ func store() {
 			}
 			f.Close()
 		case <-genChan:
+			fmt.Println("[Gen][Store] genChan received")
 			if util.FileNotExist(util.TEMPFILE) {
 				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
 				continue
@@ -263,13 +266,15 @@ func store() {
 			}
 			defer file.Close()
 
+			fmt.Println("[Gen][Store] file scanning initiated")
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
 				line := scanner.Text()
-				fmt.Println("Scaning: " + scanner.Text())
+				line = strconv.Quote(line)
 
+				fmt.Println("Feeding: " + line)
 				//file ready, execute cmd
-				cmd := exec.Command("sudo", "phantomjs", "phantomjs.js", line)
+				cmd := exec.Command("phantomjs", "phantomjs.js", line)
 				err = cmd.Run()
 				if err != nil {
 					fmt.Println("[Error][Store] failed to execute cmd")
@@ -302,7 +307,7 @@ func scheduledEventDisPatcher() {
 		select {
 		case <-timer_cleanChan:
 			fmt.Println("[Dispatcher][Clean]")
-			go refreshStore.Clean()
+			refreshStore.Clean()
 		case <-timer_genChan:
 			fmt.Println("[Dispatcher][Generate]")
 			genChan <- true
