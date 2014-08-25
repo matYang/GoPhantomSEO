@@ -25,7 +25,7 @@ const (
 	SEARCH  = "/search"
 	COURSE  = "/course"
 
-	GENERATE_TICKLEPPERIOD = 60 * 60 * 6  //generate tickle every 6 hours
+	GENERATE_TICKLEPPERIOD = 60 * 60 * 8  //generate tickle every 8 hours
 	CLEAN_TICKLEPPERIOD    = 60 * 60 * 24 //clean tickle every 24 hours
 )
 
