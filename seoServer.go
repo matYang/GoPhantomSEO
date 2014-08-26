@@ -245,6 +245,7 @@ func store() {
 			}
 			f.Close()
 		case <-genChan:
+			//TODO must make async, or it is wayyyy too slow
 			fmt.Println("[Gen][Store] genChan received")
 			if util.FileNotExist(util.TEMPFILE) {
 				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
