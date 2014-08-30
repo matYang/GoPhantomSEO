@@ -7,7 +7,7 @@ SEOSERVERPATH=$PROJECTBASEPATH'/seoServer'
 RESOURCEPATH=$PROJECTBASEPATH'/resource'
 DESTINATIONPATH='~/goPhantom'
 
-cd $GOPATH
+cd $PROJECTBASEPATH
 while true; do
     read -p "Do you wish to perform [git pull origin master]?" yn
     case $yn in
