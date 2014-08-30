@@ -4,6 +4,7 @@ echo Entering Script
 PROJECTBASEPATH=$GOPATH'/src/github.com/matYang/goPhantom'
 CLEANERPATH=$PROJECTBASEPATH'/seoCleaner'
 SEOSERVERPATH=$PROJECTBASEPATH'/seoServer'
+RESOURCEPATH=$PROJECTBASEPATH'/resource'
 DESTINATIONPATH='~/goPhantom'
 
 cd $GOPATH
@@ -23,6 +24,7 @@ go install
 cd $SEOSERVERPATH
 go install
 
+sudo cp $RESOURCEPATH/* $DESTINATIONPATH
 cd $DESTINATIONPATH
 
 echo killing the seoCleaner process
