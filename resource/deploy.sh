@@ -1,7 +1,7 @@
 #!/bin/bash
 echo Entering Script
 
-GOPATH='~/go'
+GOPATH='root/go'
 PROJECTBASEPATH=$GOPATH'/src/github.com/matYang/goPhantom'
 CLEANERPATH=$PROJECTBASEPATH'/seoCleaner'
 SEOSERVERPATH=$PROJECTBASEPATH'/seoServer'
