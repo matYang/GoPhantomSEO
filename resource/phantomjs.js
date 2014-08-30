@@ -42,7 +42,7 @@ page.open(url, function (status) {
         waitFor(function() {
             // Check in the page if a specific element is now visible
             return page.evaluate(function() {
-                return $('body').attr('pageRenderReady');
+                return $('body').attr('pagerenderready');
             });
         },
         function() {
