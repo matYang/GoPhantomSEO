@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/matYang/goPhantom/quickHash"
 	"github.com/matYang/goPhantom/redis"
@@ -10,8 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -25,8 +22,7 @@ const (
 	SEARCH  = "/search"
 	COURSE  = "/course"
 
-	GENERATE_TICKLEPPERIOD = 60 * 60 * 8  //generate tickle every 8 hours
-	CLEAN_TICKLEPPERIOD    = 60 * 60 * 24 //clean tickle every 24 hours
+	CLEAN_TICKLEPPERIOD = 60 * 60 * 24 //clean tickle every 24 hours
 )
 
 type Record struct {
@@ -41,12 +37,10 @@ func (r Record) toFileString() string {
 
 var (
 	urlChan chan Record
-	genChan chan bool
 )
 
 func init() {
 	urlChan = make(chan Record)
-	genChan = make(chan bool)
 }
 
 func getUrl(sufix string) (url string) {
@@ -192,7 +186,7 @@ func main() {
 	fmt.Println("Self Testing Finished")
 
 	//schedule the clean event, which will clear old stuff
-	go scheduledEventDisPatcher()
+	go timerEventDisPatcher()
 	//the go-routine responsible for writing hit urls to files
 	go store()
 
@@ -244,74 +238,18 @@ func store() {
 				continue
 			}
 			f.Close()
-		case <-genChan:
-			//TODO must make async, or it is wayyyy too slow
-			fmt.Println("[Gen][Store] genChan received")
-			if util.FileNotExist(util.TEMPFILE) {
-				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
-				continue
-			}
-			if !util.FileNotExist(util.PRODUCEFILE) {
-				util.RemoveFile(util.PRODUCEFILE)
-			}
-			err := util.MoveFile(util.TEMPFILE, util.PRODUCEFILE)
-			if err != nil {
-				fmt.Println("[Error][Store] failed to move temp file to produce file")
-				panic(err)
-			}
-
-			file, err := os.Open(util.PRODUCEFILE)
-			if err != nil {
-				fmt.Println("[Error][Store] failed to open produce file")
-				panic(err)
-			}
-			defer file.Close()
-
-			fmt.Println("[Gen][Store] file scanning initiated")
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				line := scanner.Text()
-				line = strconv.Quote(line)
-
-				fmt.Println("Feeding: " + line)
-				//file ready, execute cmd
-				cmd := exec.Command("phantomjs", "phantomjs.js", line)
-				err = cmd.Run()
-				if err != nil {
-					fmt.Println("[Error][Store] failed to execute cmd")
-					fmt.Println(err)
-				}
-			}
-
-			if err := scanner.Err(); err != nil {
-				fmt.Println("[Error][Store] scanner error")
-				panic(err)
-			}
-
-			//re-create the temp file
-			err = ioutil.WriteFile(util.TEMPFILE, []byte{}, 0666)
-			if err != nil {
-				fmt.Println("[Error][Store] Failed to create temp file")
-				fmt.Println(err)
-				continue
-			}
-
 		}
 	}
 }
 
-func scheduledEventDisPatcher() {
+func timerEventDisPatcher() {
 	//scheduled events using ticker channels
 	timer_cleanChan := time.NewTicker(time.Second * CLEAN_TICKLEPPERIOD).C
-	timer_genChan := time.NewTicker(time.Second * GENERATE_TICKLEPPERIOD).C
 	for {
 		select {
 		case <-timer_cleanChan:
 			fmt.Println("[Dispatcher][Clean]")
 			refreshStore.Clean()
-		case <-timer_genChan:
-			fmt.Println("[Dispatcher][Generate]")
-			genChan <- true
 		}
 	}
 }
