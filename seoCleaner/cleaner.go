@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	GENERATE_TICKLEPPERIOD = 5 //generate tickle every 5 hours
+	GENERATE_TICKLEPPERIOD = 60 * 60 * 5 //generate tickle every 5 hours
 )
 
 func main() {

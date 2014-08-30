@@ -1,12 +1,20 @@
 #!/bin/bash
 echo Entering Script
 
-GOPATH='/root/go'
+export GOPATH='/root/go'
 PROJECTBASEPATH=$GOPATH'/src/github.com/matYang/goPhantom'
-CLEANERPATH=$PROJECTBASEPATH'/seoCleaner'
-SEOSERVERPATH=$PROJECTBASEPATH'/seoServer'
+EXECUTABLEPATH=$GOPATH'/bin'
+
+CLEANERMODULE='seoCleaner'
+SEOSERVERMODULE='seoServer'
+
+CLEANERPATH=$PROJECTBASEPATH'/'$CLEANERMODULE
+SEOSERVERPATH=$PROJECTBASEPATH'/'$SEOSERVERMODULE
 RESOURCEPATH=$PROJECTBASEPATH'/resource'
-DESTINATIONPATH='~/goPhantom'
+DESTINATIONPATH=$HOME'/goPhantom'
+
+CLEANEREXECUTABLE=$EXECUTABLEPATH'/'$CLEANERMODULE
+SEOSERVEREXECUTABLE=$EXECUTABLEPATH'/'$SEOSERVERMODULE
 
 cd $PROJECTBASEPATH
 while true; do
@@ -18,6 +26,15 @@ while true; do
     esac
 done
 
+while true; do
+    read -p "Do you with to proceed with deployment? " yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
 #Go build literally takes no time, so force build would be apropriate
 cd $CLEANERPATH
 go install
@@ -25,14 +42,14 @@ go install
 cd $SEOSERVERPATH
 go install
 
-sudo cp $RESOURCEPATH/* $DESTINATIONPATH
+sudo cp -r  $RESOURCEPATH/* $DESTINATIONPATH/
 cd $DESTINATIONPATH
 
 echo killing the seoCleaner process
-sudo ps -ef | grep 'seoCleaner' | awk '{print $2}' | xargs kill
+sudo ps -ef | grep $CLEANERMODULE | awk '{print $2}' | xargs kill
 
 echo killing the seroServer process
-sudo ps -ef | grep 'seoServer' | awk '{print $2}' | xargs kill
+sudo ps -ef | grep $SEOSERVERMODULE | awk '{print $2}' | xargs kill
 
-sudo seoCleaner > seoCleaner.log &
-sudo seoServer > seoServer.log &
+sudo $CLEANEREXECUTABLE > $CLEANERMODULE'.log' &
+sudo $SEOSERVEREXECUTABLE > $SEOSERVERMODULE'.log' &
