@@ -1,7 +1,7 @@
 #!/bin/bash
 echo Entering Script
 
-export GOPATH='/root/go'
+export GOPATH='/Users/uwse/Desktop/goPack/workspace'
 PROJECTBASEPATH=$GOPATH'/src/github.com/matYang/goPhantom'
 EXECUTABLEPATH=$GOPATH'/bin'
 
@@ -37,10 +37,10 @@ done
 
 #Go build literally takes no time, so force build would be apropriate
 cd $CLEANERPATH
-go install
+/usr/local/go/bin/go install
 
 cd $SEOSERVERPATH
-go install
+/usr/local/go/bin/go install
 
 sudo cp -r  $RESOURCEPATH/* $DESTINATIONPATH/
 cd $DESTINATIONPATH
