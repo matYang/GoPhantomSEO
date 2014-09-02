@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/matYang/goPhantom/redis"
 	"github.com/matYang/goPhantom/util"
 	"os"
 	"os/exec"
@@ -20,6 +21,10 @@ func main() {
 		select {
 		case <-timer_genChan:
 			fmt.Println("[Gen][Store] genChan received")
+
+			//signal lock to redis, this could be blocking, max runtime for the following code must be within 10 seconds
+			redis.LockTempFile()
+
 			if util.FileNotExist(util.TEMPFILE) {
 				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
 				continue
@@ -32,6 +37,9 @@ func main() {
 				fmt.Println("[Error][Store] failed to move temp file to produce file")
 				panic(err)
 			}
+
+			//signal unlock
+			redis.ReleaseTempFile()
 
 			file, err := os.Open(util.PRODUCEFILE)
 			if err != nil {

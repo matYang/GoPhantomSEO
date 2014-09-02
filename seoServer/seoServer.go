@@ -214,6 +214,8 @@ func store() {
 	for {
 		select {
 		case record := <-urlChan:
+			//signal lock to redis, this could be blocking, max runtime for the following code must be within 10 seconds
+			redis.LockTempFile()
 
 			if util.FileNotExist(util.TEMPFILE) {
 				err = ioutil.WriteFile(util.TEMPFILE, []byte{}, 0666)
@@ -239,6 +241,9 @@ func store() {
 				continue
 			}
 			f.Close()
+
+			//signal unlock
+			redis.ReleaseTempFile()
 		}
 	}
 }
