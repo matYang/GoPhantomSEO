@@ -214,6 +214,7 @@ func store() {
 	for {
 		select {
 		case record := <-urlChan:
+
 			if util.FileNotExist(util.TEMPFILE) {
 				err = ioutil.WriteFile(util.TEMPFILE, []byte{}, 0666)
 				if err != nil {

@@ -71,12 +71,12 @@ func GetConn() redis.Conn {
 	return pool.Get()
 }
 
-func Set(key, value string) (reply string, err error) {
+func set(key string, exp int, value string) (reply string, err error) {
 	conn := pool.Get()
 	defer conn.Close()
 
 	//set and exp, everything expires in 2 months after each set
-	conn.Send("SETEX", key, EXPIRE_SEC, value)
+	conn.Send("SETEX", key, exp, value)
 	conn.Flush()
 
 	data, err := conn.Receive()
@@ -92,7 +92,7 @@ func Set(key, value string) (reply string, err error) {
 	return
 }
 
-func Get(key string) (reply string, err error) {
+func get(key string) (reply string, err error) {
 	conn := pool.Get()
 	defer conn.Close()
 
@@ -114,6 +114,14 @@ func Get(key string) (reply string, err error) {
 	}
 
 	return
+}
+
+func Set(key, value string) (reply string, err error) {
+	return set(key, EXPIRE_SEC, value)
+}
+
+func Get(key string) (reply string, err error) {
+	return get(key)
 }
 
 func SetByUrl(url string, arg ...string) (hashedUrl, reply string, err error) {
@@ -144,5 +152,23 @@ func GetByUrl(url string) (hashedUrl string, mili int64, err error) {
 	valArr := strings.Split(value, SEPERATOR)
 	hashedUrl = valArr[0]
 	mili, err = util.StrToI64(valArr[1])
+	return
+}
+
+//this function will block until a lock has been obtained
+func LockTempFile() {
+	locked := true
+	for locked {
+		value, err := get("LOCKTEMPFILE")
+		locked = (err == nil && value == "LOCK")
+		time.Sleep(time.Second) //sleep for 1 second
+	}
+
+	set("LOCKTEMPFILE", 10, "LOCK")
+	return
+}
+
+func ReleaseTempFile() {
+	set("LOCKTEMPFILE", 10, "UNLOCK")
 	return
 }
