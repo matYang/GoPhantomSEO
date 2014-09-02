@@ -1,7 +1,7 @@
 #!/bin/bash
 echo Entering Script
 
-export GOPATH='/Users/uwse/Desktop/goPack/workspace'
+export GOPATH='/root/go'
 PROJECTBASEPATH=$GOPATH'/src/github.com/matYang/goPhantom'
 EXECUTABLEPATH=$GOPATH'/bin'
 
