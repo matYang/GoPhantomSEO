@@ -192,7 +192,7 @@ func main() {
 
 	//decalre the http handler
 	http.HandleFunc("/", snapshotHandler)
-	http.ListenAndServe(":8081", nil)
+	http.ListenAndServe(":8085", nil)
 }
 
 func store() {
