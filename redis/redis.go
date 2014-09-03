@@ -133,7 +133,7 @@ func Get(key string) (reply string, err error) {
 }
 
 //添加一条url记录
-//键为url自己，值为hash过后的url + @ + 转化为字符串的毫秒数用作时间戳
+//键为url自己，值为hash过后的url + ”-“ + 转化为字符串的毫秒数用作时间戳
 func SetByUrl(url string, arg ...string) (hashedUrl, reply string, err error) {
 	now := util.GetMili()
 	nowStr := util.I64ToStr(now)
