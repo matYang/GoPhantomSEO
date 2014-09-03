@@ -10,21 +10,25 @@ const (
 	PRODUCEFILE = "gen.txt"
 )
 
+//根据时间找到对应的文件夹，文件夹为如见代表的自从epoch以来的日子
 func AssembleDirectory(mili int64) string {
 	miliStr := GetDayFromMili(mili)
 	return I64ToStr(miliStr) + string(os.PathSeparator)
 }
 
+//根据hash和时间找到对应的文件的路径（包括文件夹和html文件名）
 func AssembleFilename(hash string, mili int64) string {
 	return AssembleDirectory(mili) + hash + ".html"
 }
 
+//判断文件是否不存在
 //check if the file exists, return true if not exist
 func FileNotExist(filename string) bool {
 	_, err := os.Stat(filename)
 	return os.IsNotExist(err)
 }
 
+//判断目录是否不存在
 func DirectoryNotExist(path string) bool {
 	src, err := os.Stat(path)
 	if os.IsNotExist(err) {

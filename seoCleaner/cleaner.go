@@ -12,35 +12,44 @@ import (
 )
 
 const (
+	//设置生成html的间隔
 	GENERATE_TICKLEPPERIOD = 60 * 60 * 5 //generate tickle every 5 hours
 )
 
 func main() {
+	//创建一个定时器的channel，到时定时器会自动给channel一个信号
 	timer_genChan := time.NewTicker(time.Second * GENERATE_TICKLEPPERIOD).C
 	for {
+		//无限循环，等待定时器的信号才会继续执行
 		select {
 		case <-timer_genChan:
 			fmt.Println("[Gen][Store] genChan received")
 
+			//向Redis信号将要更改临时存储文件，如果该Redis中有该文件正在被使用的信号，则一直等待（记录10秒钟自动过期，所以最长等待10秒钟，下列代码运行时间最长也是10秒钟）
 			//signal lock to redis, this could be blocking, max runtime for the following code must be within 10 seconds
 			redis.LockTempFile()
 
+			//如果临时文件不存在，则证明没有新的请求，则直接进入下一次循环等待定时器信号
 			if util.FileNotExist(util.TEMPFILE) {
 				fmt.Println("[Error][Store] failed to locate temp file with name: " + util.TEMPFILE)
 				continue
 			}
+			//如果之前的生成文件存在，删除它
 			if !util.FileNotExist(util.PRODUCEFILE) {
 				util.RemoveFile(util.PRODUCEFILE)
 			}
+			//将临时文件移动到生成文件去
 			err := util.MoveFile(util.TEMPFILE, util.PRODUCEFILE)
 			if err != nil {
 				fmt.Println("[Error][Store] failed to move temp file to produce file")
 				panic(err)
 			}
 
+			//向Redis信号解锁临时文件
 			//signal unlock
 			redis.ReleaseTempFile()
 
+			//打开生成文件
 			file, err := os.Open(util.PRODUCEFILE)
 			if err != nil {
 				fmt.Println("[Error][Store] failed to open produce file")
@@ -49,21 +58,25 @@ func main() {
 			defer file.Close()
 
 			fmt.Println("[Gen][Store] file scanning initiated")
+			//逐行读取
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
 				line := scanner.Text()
+				//这一行很重要，因为读取的记录中有许多特殊字符，为了能将其pass给命令行，必须包含在引号中
 				line = strconv.Quote(line)
 
 				fmt.Println("Feeding: " + line)
+				//创建启动Phantom的命令
 				//file ready, execute cmd
 				cmd := exec.Command("phantomjs", "phantomjs.js", line)
+				//执行该命令，run方法会一直等到命令执行完成才继续，我们需要这一点
 				err = cmd.Run()
 				if err != nil {
 					fmt.Println("[Error][Store] failed to execute cmd")
 					fmt.Println(err)
 				}
 			}
-
+			//如果读取文件错误，则遇到了不可修复的问题，调用panic，crash掉程序
 			if err := scanner.Err(); err != nil {
 				fmt.Println("[Error][Store] scanner error")
 				panic(err)

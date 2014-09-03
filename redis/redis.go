@@ -67,23 +67,29 @@ func init() {
 
 }
 
+//从连接池中获得连接
 func GetConn() redis.Conn {
 	return pool.Get()
 }
 
+//设置一个键值对，这里默认总是会带一个过期值
 func set(key string, exp int, value string) (reply string, err error) {
 	conn := pool.Get()
 	defer conn.Close()
 
+	//向连接填写一个setex命令（一个会过期的set）
 	//set and exp, everything expires in 2 months after each set
 	conn.Send("SETEX", key, exp, value)
+	//清空连接池缓冲，aka发送命令给redis
 	conn.Flush()
 
+	//等待获得回复
 	data, err := conn.Receive()
 	if err != nil {
 		return
 	}
 
+	//期待成功的回复值类型是字符串
 	ok := false
 	if reply, ok = data.(string); !ok {
 		err = errors.New("[ERROR] Set Return Value not String")
@@ -92,6 +98,7 @@ func set(key string, exp int, value string) (reply string, err error) {
 	return
 }
 
+//获取一个值
 func get(key string) (reply string, err error) {
 	conn := pool.Get()
 	defer conn.Close()
@@ -104,6 +111,7 @@ func get(key string) (reply string, err error) {
 		return
 	}
 
+	//因为之前存的都是string，因此返回值类型是一个byte数组(slice)，这里用8位int表示
 	//apparently the raw return type is int slice
 	replyArr := []uint8{}
 	ok := false
@@ -124,6 +132,8 @@ func Get(key string) (reply string, err error) {
 	return get(key)
 }
 
+//添加一条url记录
+//键为url自己，值为hash过后的url + @ + 转化为字符串的毫秒数用作时间戳
 func SetByUrl(url string, arg ...string) (hashedUrl, reply string, err error) {
 	now := util.GetMili()
 	nowStr := util.I64ToStr(now)
@@ -142,6 +152,7 @@ func SetByUrl(url string, arg ...string) (hashedUrl, reply string, err error) {
 	return
 }
 
+//根据url获得一条url记录
 func GetByUrl(url string) (hashedUrl string, mili int64, err error) {
 	value, err := Get(url)
 
@@ -155,19 +166,23 @@ func GetByUrl(url string) (hashedUrl string, mili int64, err error) {
 	return
 }
 
+//告诉Redis需要锁定临时文件，当生成phantom的时候会需要挪动临时文件，避免与主程序写入临时文件冲突，因此加一个锁
+//调用者会需要一直等待到Redis中的临时文件锁定记录解锁为止
 //this function will block until a lock has been obtained
 func LockTempFile() {
 	locked := true
 	for locked {
 		value, err := get("LOCKTEMPFILE")
+		//err不问nil且value为lock时才表示redis中真的有这条lock记录
 		locked = (err == nil && value == "LOCK")
 		time.Sleep(time.Second) //sleep for 1 second
 	}
-
+	//这里不一定是完全线程安全的，但是因为生成phantom是定时任务，写入临时文件也只有一条goroutine，并发情况有限，因此姑且这么写了
 	set("LOCKTEMPFILE", 10, "LOCK")
 	return
 }
 
+//告诉Redis解锁临时文件
 func ReleaseTempFile() {
 	set("LOCKTEMPFILE", 10, "UNLOCK")
 	return

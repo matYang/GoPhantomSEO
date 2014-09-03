@@ -9,6 +9,7 @@ import (
 )
 
 func Clean() {
+	//清理掉过期的文件，线程安全因为当查找html时会做过期判断，过期的文件将自动跳过而不会读取
 	//this method is concurrency safe as any records 2 month order will be considered not exist
 	now := util.GetMili()
 	paths, _ := ioutil.ReadDir("./")
