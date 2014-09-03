@@ -16,6 +16,12 @@ const (
 	GENERATE_TICKLEPPERIOD = 60 * 60 * 5 //generate tickle every 5 hours
 )
 
+//之所以要额外开一个程序，是因为一下两点原因：
+//每次生成页面都最好等phantom完成，不然多phantom进程并发难以控制并且消耗CPU，日后可以改成phantom进程池并发
+//因为要等待phantom完成，因此必须使用run命令，该命令会一直等到命令彻底执行完成才结束
+//而goroutine的scheduler不是preemptive的，在run命令等待时整个程序会卡死，导致新的请求需要等很久才会被接受
+//因此该功能不能与主服务器放在一起，独立开来之后相当于利用了操作系统自己的preemptive sheculder来安排
+//该程序在等待命令执行时的卡死不会影响到其他程序(主SEO服务器)
 func main() {
 	//创建一个定时器的channel，到时定时器会自动给channel一个信号
 	timer_genChan := time.NewTicker(time.Second * GENERATE_TICKLEPPERIOD).C
