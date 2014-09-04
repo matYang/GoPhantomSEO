@@ -13,7 +13,7 @@ import (
 
 const (
 	//设置生成html的间隔
-	GENERATE_TICKLEPPERIOD = 60 * 60 * 5 //generate tickle every 5 hours
+	GENERATE_TICKLEPPERIOD = 60 * 60 * 1 //generate tickle every 1 hours
 )
 
 //之所以要额外开一个程序，是因为一下两点原因：
