@@ -220,7 +220,7 @@ func main() {
 
 //该goroutine用于监听url channel，把新发送过来的record写入临时文件中
 func store() {
-	//如果临时文件不存在，则创建临时文件
+	//如果临时文件不存在，则创建临时文件，这样当重启时不会覆盖之前的记录
 	if util.FileNotExist(util.TEMPFILE) {
 		err := ioutil.WriteFile(util.TEMPFILE, []byte{}, 0666)
 		if err != nil {
