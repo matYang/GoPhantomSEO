@@ -135,8 +135,10 @@ func snapshotHandler(w http.ResponseWriter, r *http.Request) {
 		//ignore redis error here, as there is nothing we can possily do
 		_, _, _ = redis.SetByUrl(realUrl, previousHash, util.I64ToStr(now))
 		filename := util.AssembleFilename(previousHash, previousMili)
-		//在今天的文件夹中寻找对应的html文件，如果没有找到则说明该记录是之前的，重新将该记录记载到临时文件中
-		if util.FileNotExist(util.AssembleFilename(previousHash, now)) {
+		//判断记录是否是今天的，如果不是的话，重新将该记录记载到临时文件中之后生成
+		//保证旧记录被刷新，而当天已经被新请求过的记录不需要重复刷新
+		if util.GetDayFromMili(now) > util.GetDayFromMili(previousMili) {
+			//util.FileNotExist(util.AssembleFilename(previousHash, now))
 			//if hit before but not today, add it to the generation list
 			//if hit and its today, then it is already in the list or refreshed, do not add again
 			record := Record{url: realUrl, hashedUrl: previousHash, mili: now}
@@ -144,7 +146,7 @@ func snapshotHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if util.FileNotExist(filename) || (now-previousMili) >= redis.EXPIRE_MILI {
-			//如果记录在DB但是对应的html没有找到，说明该记录被baidu查找但是尚未生成，则返回503
+			//如果记录在DB但是对应的html没有找到，或者Redis中的记录已经过期，则返回503，此时记录会已经被存储到Redis和临时文件中
 			//record is in DB but its corresponding file does not exist or record has expired
 			//eg crawler hitting the same url many times a day or cleaned
 			//nothing much we can do
